@@ -1,0 +1,29 @@
+# 보안 — 절대 커밋 금지
+.env
+.env.local
+*.token
+*secrets*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Playwright 테스트 파일
+te_test.py
+test_te*.py
+te_test.png
+te_table.png
+te_full.png
+te_viewport.png
+te_raw.html
+te_events.json
+
+# 임시 파일
+/tmp/
+brief_preview.md
