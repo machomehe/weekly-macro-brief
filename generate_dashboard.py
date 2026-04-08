@@ -142,12 +142,19 @@ def generate_html(data):
             ref = e.get('reference', '')
             ref_str = f'<span class="reference">({esc(ref)})</span>' if ref else ''
 
+            # 제목을 TE 지표 페이지 링크로 만들기
+            te_url = e.get('url', '').strip()
+            if te_url:
+                title_html = f'<h3><a href="{esc(te_url)}" target="_blank" rel="noopener">{esc(e["event"])} {ref_str} <span class="external">↗</span></a></h3>'
+            else:
+                title_html = f'<h3>{esc(e["event"])} {ref_str}</h3>'
+
             card = f'''
             <div class="event-card">
               <div class="event-header">
                 <div class="stars">★★★</div>
                 <div class="event-title">
-                  <h3>{esc(e['event'])} {ref_str}</h3>
+                  {title_html}
                   <div class="time-badge">{esc(e['kst_time'])} KST</div>
                 </div>
               </div>
@@ -339,6 +346,27 @@ header.page-header .subtitle {{
   color: var(--text);
   margin-bottom: 4px;
   line-height: 1.35;
+}}
+.event-title h3 a {{
+  color: var(--text);
+  text-decoration: none;
+  display: inline-block;
+  transition: color 0.15s;
+}}
+.event-title h3 a:hover {{
+  color: var(--accent);
+}}
+.event-title h3 a:active {{
+  color: var(--accent);
+}}
+.event-title .external {{
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 2px;
+}}
+.event-title h3 a:hover .external {{
+  color: var(--accent);
 }}
 .event-title .reference {{
   color: var(--text-muted);
