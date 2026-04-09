@@ -1,16 +1,14 @@
 # Weekly Macro Brief — 작업 진행 상태
 
-**최종 업데이트**: 2026-04-09 01:00 KST
-**다음 작업**: 2026-04-10 예정
+**최종 업데이트**: 2026-04-09 11:00 KST
+**상태**: **전체 파이프라인 완성 + 자동 스케줄 활성화** ✅
 
 ---
 
 ## 프로젝트 개요
 
-매주 Trading Economics 캘린더에서 미국 3-star 경제지표를 자동 수집하여
-HTML 대시보드로 생성하고 Telegram으로 알림 발송하는 시스템.
-
----
+매주/매일 Trading Economics 캘린더에서 미국 3-star 경제지표 **2주치**를 자동 수집하여
+HTML 대시보드로 생성하고 Telegram으로 링크 발송하는 시스템.
 
 ## 핵심 정보
 
@@ -19,264 +17,188 @@ HTML 대시보드로 생성하고 Telegram으로 알림 발송하는 시스템.
 | **로컬 경로** | `/Users/machome/weekly-macro-brief` |
 | **GitHub 저장소** | https://github.com/machomehe/weekly-macro-brief (public) |
 | **대시보드 URL** | https://machomehe.github.io/weekly-macro-brief/ |
-| **Telegram 봇 이름** | `@Eco_Cal_bot` (economic_calendar_bot) |
+| **경제맵 URL** | https://machomehe.github.io/economic-map/ |
+| **Telegram 봇** | `@Eco_Cal_bot` (economic_calendar_bot) |
 | **Telegram chat_id** | `8644881596` (Machome) |
-| **Telegram 토큰** | `~/weekly-macro-brief/.env` (gitignore됨, GitHub에 없음) |
+| **Telegram 토큰** | `~/weekly-macro-brief/.env` (gitignore됨) |
 
 ---
 
-## 완료된 작업 (Phase 1-3)
+## 자동 스케줄 (launchd, KST 기준)
 
-### Phase 1: 데이터 수집 파이프라인 ✅
-- **`fetch_calendar.py`** — Playwright로 TE 미국 캘린더 수집
-  - 실행: `python3 fetch_calendar.py`
-  - 출력: `calendar.json`
-  - Cloudflare 통과 확인됨 (실제 브라우저 사용)
-  - **중요**: GitHub Actions에서는 차단됨. 맥 로컬에서만 작동.
+| 시간 | 작업 | 설명 |
+|------|------|------|
+| **매일 05:00** | `update` | TE 데이터 수집 → 인사이트 → 대시보드 재생성 → GitHub push |
+| **매일 07:00** | `send` | Telegram으로 링크 2개 전송 |
+| **매일 12:00** | `send` | Telegram으로 링크 2개 전송 |
+| **매일 17:00** | `send` | Telegram으로 링크 2개 전송 |
 
-### Phase 2: 인사이트 생성 ✅
-- **`generate_insights.py`** — 룰 기반 지표별 인사이트
-  - 실행: `python3 generate_insights.py`
-  - 입력: `calendar.json`
-  - 출력: `insights.json`
-  - 11개 지표에 대해 사전 정의된 임계값 규칙으로 해석 생성
-  - 지표: CPI, Core CPI, PCE, GDP, Personal Income/Spending, Durable Goods, Michigan, FOMC Minutes 등
+### launchd 파일 위치
+- `~/Library/LaunchAgents/com.machome.weekly-brief-update.plist`
+- `~/Library/LaunchAgents/com.machome.weekly-brief-send.plist`
 
-### Phase 3: HTML 대시보드 + Telegram 알림 ✅
-- **`generate_dashboard.py`** — 반응형 HTML 생성
-  - 실행: `python3 generate_dashboard.py`
-  - 입력: `insights.json`
-  - 출력: `docs/index.html`
-  - 다크 테마, 모바일 반응형
-  - 각 지표 제목 클릭 → TE 해당 페이지로 이동 (새 탭)
+### launchd 관리 명령
+```bash
+# 상태 확인
+launchctl list | grep weekly-brief
 
-- **`send_link.py`** — Telegram으로 대시보드 링크 전송
-  - 실행: `python3 send_link.py`
-  - 사용: `.env` 환경변수 (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
+# 수동 실행 (테스트)
+launchctl start com.machome.weekly-brief-update
+launchctl start com.machome.weekly-brief-send
 
-- **GitHub Pages 자동 배포 활성화**
-  - 소스: `main` 브랜치 `/docs` 폴더
-  - 푸시 후 약 1분 내 자동 배포
+# 중단
+launchctl unload ~/Library/LaunchAgents/com.machome.weekly-brief-update.plist
+launchctl unload ~/Library/LaunchAgents/com.machome.weekly-brief-send.plist
+
+# 재시작
+launchctl load ~/Library/LaunchAgents/com.machome.weekly-brief-update.plist
+launchctl load ~/Library/LaunchAgents/com.machome.weekly-brief-send.plist
+```
+
+### 로그 위치
+- `/tmp/weekly-brief-update.log` — update stdout
+- `/tmp/weekly-brief-update.err` — update stderr
+- `/tmp/weekly-brief-send.log` — send stdout
+- `/tmp/weekly-brief-send.err` — send stderr
+- `~/weekly-macro-brief/pipeline.log` — 파이프라인 전체 로그
+
+---
+
+## Telegram 메시지 포맷 (현재 버전)
+
+```
+경제 캘린더
+https://machomehe.github.io/weekly-macro-brief/
+
+경제맵
+https://machomehe.github.io/economic-map/
+```
+
+- 다른 문구 없음
+- 이름 밑에 링크만
+- 탭하면 바로 이동
+
+---
+
+## 완성된 기능
+
+### 1. 데이터 수집 (2주치)
+- Playwright + Cloudflare 우회
+- 월-금 × 2주 = 10일치 평일 데이터
+- US 3-star 지표만 필터
+
+### 2. 대시보드 (HTML)
+- 다크 테마, 반응형
+- **상단 nav 버튼**: 경제맵 ↔ 캘린더 서로 이동
+- **오늘 날짜 강조**: 밝은 테두리 + "오늘" 배지 + 배경 하이라이트
+- 지표 제목 클릭 → TE 해당 페이지 이동
+- 룰 기반 인사이트 (지표별 색상 코딩)
+- 경고/컨텍스트 설명
+
+### 3. Telegram 자동 발송
+- 하루 3회 (07:00, 12:00, 17:00 KST)
+- 2개 링크를 1개 메시지로
+- 텍스트 최소화
+
+### 4. 자동화
+- launchd로 완전 무인 운영
+- 05:00 데이터 업데이트
+- 에러 로깅
 
 ---
 
 ## 파일 인벤토리
 
-### 소스 코드 (GitHub에 있음)
+### 핵심 파이프라인
 ```
 ~/weekly-macro-brief/
-├── .gitignore              # .env 및 테스트 파일 제외
-├── README.md               # 프로젝트 설명
-├── WORK_STATUS.md          # 이 파일
-├── fetch_calendar.py       # TE 캘린더 수집 (Playwright)
-├── generate_insights.py    # 룰 기반 인사이트
-├── generate_dashboard.py   # HTML 대시보드 생성
-├── format_brief.py         # (구버전) Telegram HTML 포맷 - 현재 미사용
-├── send_telegram.py        # (구버전) 전체 브리프 Telegram 전송 - 현재 미사용
-├── send_link.py            # (현재 사용) Telegram 링크 전송
-├── calendar.json           # 현재 주 TE 데이터 (캐시)
-├── insights.json           # 인사이트 추가된 데이터
-└── docs/
-    └── index.html          # 배포된 대시보드
+├── run_pipeline.py          # 메인 오케스트레이터 ⭐
+├── fetch_calendar.py         # Playwright TE 수집
+├── generate_insights.py      # 룰 기반 인사이트
+├── generate_dashboard.py     # HTML 생성 (오늘 강조 + nav)
+├── calendar.json             # 수집 데이터 (2주치)
+├── insights.json             # 인사이트 추가 데이터
+├── docs/index.html           # 배포된 대시보드
+├── pipeline.log              # 실행 로그
+├── .env                      # Telegram 토큰 (gitignore)
+├── .gitignore
+├── README.md
+└── WORK_STATUS.md            # 이 파일
 ```
 
-### 로컬 전용 (GitHub에 없음 — .gitignore)
-```
-.env                        # Telegram 토큰 (보안)
-te_test.png                 # 테스트 스크린샷
-te_table.png
-te_full.png
-te_viewport.png
-te_raw.html                 # TE 원본 HTML (디버깅용)
-te_events.json              # 테스트 이벤트 덤프
-test_te*.py                 # 실험용 테스트 스크립트들
-brief_preview.md            # 로컬 미리보기
-```
+### 구 파일 (미사용, 참고용)
+- `format_brief.py` — 텔레그램 HTML 포맷터 (현재 미사용)
+- `send_telegram.py` — 구버전 브리프 전송 (현재 미사용)
+- `send_link.py` — 단일 링크 전송 (현재 미사용, run_pipeline으로 통합)
 
 ---
 
-## 현재 실행 흐름 (수동)
+## 수동 실행 (필요 시)
 
 ```bash
 cd ~/weekly-macro-brief
 
-# 1. TE 데이터 수집 (약 10초)
-python3 fetch_calendar.py
+# 1. 데이터 업데이트 (fetch → insights → dashboard → git push)
+python3 run_pipeline.py update
 
-# 2. 인사이트 생성 (즉시)
-python3 generate_insights.py
+# 2. Telegram 링크 전송
+python3 run_pipeline.py send
 
-# 3. HTML 대시보드 생성 (즉시)
-python3 generate_dashboard.py
-
-# 4. GitHub에 커밋 + 푸시
-git add docs/index.html calendar.json insights.json
-git commit -m "update: weekly brief $(date +%Y-%m-%d)"
-git push
-
-# 5. GitHub Pages 재배포 대기 (~1분)
-sleep 60
-
-# 6. Telegram 알림 전송
-python3 send_link.py
+# 3. 로그 확인
+tail -20 pipeline.log
 ```
 
 ---
 
-## 남은 작업 (Phase 4-5) — 내일 진행
+## 중요 제약사항
 
-### Phase 4: 오케스트레이션 ⬜
-- [ ] **`run_pipeline.py`** 작성
-  - 위 6단계를 자동으로 순차 실행
-  - 각 단계별 에러 처리 (실패 시 어떻게 할지)
-  - 로깅 (성공/실패 추적)
-  - 예시 구조:
-    ```python
-    import subprocess
-    import sys
-    from datetime import datetime
+1. **맥 전원 상태**: launchd 실행 시간에 맥이 켜져 있거나 수면 모드여야 함
+2. **GitHub Actions 불가**: TE가 cloud IP 차단 → 맥 로컬 실행만 가능
+3. **`.env` 보안**: Telegram 토큰 절대 커밋 금지
+4. **Playwright**: `~/Library/Python/3.9/bin/playwright`
+5. **Python**: `/usr/bin/python3` (3.9.6)
 
-    LOG = '/tmp/weekly-brief.log'
+---
 
-    def log(msg):
-        with open(LOG, 'a') as f:
-            f.write(f'[{datetime.now()}] {msg}\n')
+## 오늘 (2026-04-09) 완료한 작업
 
-    def step(name, cmd):
-        log(f'START: {name}')
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        if result.returncode != 0:
-            log(f'FAIL: {name} — {result.stderr}')
-            return False
-        log(f'OK: {name}')
-        return True
+1. ✅ `fetch_calendar.py` → 2주치 데이터 수집으로 확장
+2. ✅ `generate_dashboard.py` → 오늘 날짜 강조 + 상단 nav 버튼
+3. ✅ `run_pipeline.py` → 전체 파이프라인 오케스트레이터 (update/send)
+4. ✅ 경제맵 `index.html` → 상단 nav 버튼 추가
+5. ✅ Telegram 메시지 포맷 변경 (2개 링크, 1개 메시지)
+6. ✅ launchd plist 2개 작성 및 로드
+7. ✅ 수동 실행 테스트 성공
+8. ✅ GitHub 양쪽 repo 푸시 + Pages 배포 확인
 
-    # 순차 실행
-    ```
+---
 
-### Phase 5: 자동 스케줄 (launchd) ⬜
-- [ ] **`com.user.weekly-brief.plist`** 작성
-  - macOS LaunchAgent
-  - 매주 지정된 시간 자동 실행
-  - 위치: `~/Library/LaunchAgents/`
-- [ ] **결정 필요**: 실행 시간
-  - 옵션 A: 월 07:00 KST (아침 출근 전)
-  - 옵션 B: 일 22:00 KST (주초 준비)
-  - 옵션 C: 월 08:00 KST (출근 시간)
-- [ ] **launchd 로드**: `launchctl load ~/Library/LaunchAgents/com.user.weekly-brief.plist`
-- [ ] **테스트**: `launchctl start com.user.weekly-brief`
+## 과거 기록
 
-### Phase 6: 개선 (여유 있으면)
-- [ ] 과거 브리프 아카이브 (`docs/archive/2026-W15.html` 등)
+### 2026-04-08 (Phase 1-3)
+- Playwright + TE 데이터 수집
+- 룰 기반 인사이트
+- HTML 대시보드 + GitHub Pages
+- Telegram 봇 통합
+- 지표 → TE 링크 연동
+
+### 2026-04-09 (Phase 4-5)
+- 2주치 데이터 확장
+- 오늘 강조 기능
+- 상단 nav 버튼 (양쪽 사이트)
+- run_pipeline.py 오케스트레이터
+- launchd 자동 스케줄 (1 + 3 schedules)
+- **전체 자동화 완성**
+
+---
+
+## 다음 단계 (선택사항, 여유 있으면)
+
+- [ ] 과거 브리프 아카이브 (`docs/archive/YYYY-MM-DD.html`)
 - [ ] 에러 발생 시 Telegram으로 실패 알림
-- [ ] Cleveland Fed Nowcast 추가 통합
-- [ ] 지표별 과거 서프라이즈 이력 표시
-
----
-
-## 알려진 이슈 / 주의사항
-
-1. **Cloudflare**: TE는 GitHub Actions에서 차단됨 → 반드시 **맥 로컬 실행**
-2. **맥 전원 상태**: launchd 실행 시간에 맥이 켜져 있거나 수면 모드여야 함
-3. **Playwright 경로**: `~/Library/Python/3.9/bin/playwright` (PATH에 없을 수 있음)
-4. **Telegram 토큰 보안**: 절대 Git에 커밋하지 말 것. `.gitignore`에 `.env` 확인
-5. **HTML 구조 변경**: TE가 HTML 구조 바꾸면 `fetch_calendar.py`의 셀렉터 수정 필요
-6. **파이썬 버전**: 시스템 Python 3.9.6 사용 중. `/usr/bin/python3`
-
----
-
-## 기술적 세부사항 (메모)
-
-### Playwright 설정
-- **크로미움 설치 경로**: `~/Library/Caches/ms-playwright/chromium_headless_shell-1208`
-- **사용 중인 옵션**:
-  ```python
-  browser = p.chromium.launch(
-      headless=True,
-      args=['--disable-blink-features=AutomationControlled', '--no-sandbox']
-  )
-  context = browser.new_context(
-      viewport={'width': 1600, 'height': 1200},
-      device_scale_factor=2,
-      user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)...',
-      locale='en-US',
-      timezone_id='America/New_York',
-  )
-  ```
-- **TE URL**: `https://tradingeconomics.com/united-states/calendar`
-- **중요 HTML 패턴**:
-  - 테이블: `table#calendar`
-  - 행: `tr[data-id]`
-  - 날짜: `td` 첫 번째 셀의 class (`class=" 2026-04-10"`)
-  - 중요도: `span.calendar-date-N` (N=1,2,3)
-  - 이벤트명: `a.calendar-event`
-  - 값: `#previous`, `#consensus`, `#forecast`, `#actual` (id로 재사용됨)
-
-### Telegram 봇
-- **Bot API URL**: `https://api.telegram.org/bot<TOKEN>/sendMessage`
-- **parse_mode**: `HTML` 사용 (MarkdownV2는 escape 복잡)
-- **메시지 크기 제한**: 4096자
-
-### GitHub Pages
-- **저장소 설정**: Settings → Pages → Source: `main`, Folder: `/docs`
-- **API 활성화 명령**:
-  ```bash
-  gh api -X POST repos/machomehe/weekly-macro-brief/pages \
-    -f "source[branch]=main" -f "source[path]=/docs"
-  ```
-
----
-
-## 복원 가이드 (터미널 재시작 시)
-
-```bash
-# 1. 프로젝트 폴더로 이동
-cd ~/weekly-macro-brief
-
-# 2. 현재 상태 확인
-cat WORK_STATUS.md
-git status
-git log --oneline -10
-
-# 3. 수동 실행 테스트 (선택)
-python3 fetch_calendar.py && python3 generate_insights.py && python3 generate_dashboard.py
-open docs/index.html  # 로컬 미리보기
-
-# 4. 내일 이어서 작업: Phase 4 (run_pipeline.py)
-```
-
----
-
-## Claude에게 내일 전할 프롬프트 (참고)
-
-> "어제 `~/weekly-macro-brief` 프로젝트 하던 거 이어서. WORK_STATUS.md 먼저 읽고,
-> Phase 4 `run_pipeline.py` 오케스트레이터 작성부터 시작해줘.
-> 그 다음 launchd 자동 스케줄 설정. 실행 시간은 아직 안 정했어."
-
----
-
-## 오늘 이 대화에서 결정된 사항
-
-1. ✅ **데이터 소스**: Trading Economics (Playwright로 스크래핑, 맥 로컬)
-2. ✅ **인사이트 방식**: 룰 기반 (LLM 미사용)
-3. ✅ **전달 방법**: Telegram으로 링크만 → 클릭하면 HTML 대시보드
-4. ✅ **호스팅**: GitHub Pages (public 저장소, 별도 URL)
-5. ✅ **시간대**: 모든 날짜/시간 KST 기준으로 표시
-6. ✅ **보안**: `.env`에 토큰 저장, 절대 커밋 금지
-7. ⬜ **실행 시간**: 아직 미결정 (월요일 아침 유력)
-8. ⬜ **자동화**: launchd로 할 예정, 아직 설정 안 됨
-
----
-
-## 진행 경과 요약
-
-1. **Playwright 접근 성공** → 맥 로컬에서 Cloudflare 통과 확인
-2. **TE 캘린더 파싱 성공** → 286개 이벤트 추출, 이번 주 3-star 11개 필터
-3. **KST 시간 변환** → ET + 13시간, 날짜 롤오버 처리 (FOMC Minutes는 수→목 전환)
-4. **Telegram 통합 성공** → 봇 생성, 링크 전송 확인
-5. **HTML 대시보드 완성** → 다크 테마, 반응형, 지표별 카드
-6. **GitHub 배포 완성** → Pages 활성화, 자동 배포 작동
-7. **지표 → TE 링크 연동** → 각 이벤트 제목 클릭 시 TE 해당 페이지로 이동
+- [ ] 중요도 2-star 이벤트도 선택적으로 표시
+- [ ] 경제맵과 캘린더 지표 연동 (지표 클릭 → 경제맵에서 해당 노드로 이동)
+- [ ] 주간 요약 이메일 (선택)
 
 ---
 

@@ -55,6 +55,9 @@ def generate_html(data):
     for e in events:
         by_date[e['kst_date']].append(e)
 
+    # 오늘 날짜 (KST 기준)
+    today_kst = (datetime.utcnow() + timedelta(hours=9)).strftime('%Y-%m-%d')
+
     summary = data.get('weekly_summary', {})
 
     # 주차 계산
@@ -94,6 +97,9 @@ def generate_html(data):
     for date in sorted(by_date.keys()):
         dt = datetime.strptime(date, '%Y-%m-%d')
         wd = KOR_WEEKDAY[dt.weekday()]
+        is_today = (date == today_kst)
+        section_class = 'date-section today' if is_today else 'date-section'
+        today_badge = ' <span class="today-badge">오늘</span>' if is_today else ''
 
         event_cards = []
         for e in by_date[date]:
@@ -167,10 +173,10 @@ def generate_html(data):
             event_cards.append(card)
 
         section = f'''
-        <section class="date-section">
+        <section class="{section_class}">
           <h2 class="date-heading">
             <span class="date-label">{esc(date[5:])}</span>
-            <span class="weekday">{wd}요일</span>
+            <span class="weekday">{wd}요일</span>{today_badge}
             <span class="date-count">{len(by_date[date])}건</span>
           </h2>
           {''.join(event_cards)}
@@ -216,10 +222,43 @@ html, body {{
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   -webkit-font-smoothing: antialiased;
 }}
+.site-nav {{
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  gap: 0;
+  background: rgba(22,22,30,0.85);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}}
+.site-nav a {{
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: 16px;
+  transition: all 0.15s;
+}}
+.site-nav a.active {{
+  color: #fff;
+  background: var(--accent);
+}}
+.site-nav a:not(.active) {{
+  color: var(--text-dim);
+}}
+.site-nav a:not(.active):hover {{
+  color: var(--text);
+}}
 main {{
   max-width: 720px;
   margin: 0 auto;
-  padding: 20px 16px 40px;
+  padding: 60px 16px 40px;
 }}
 header.page-header {{
   padding: 24px 0 20px;
@@ -288,6 +327,30 @@ header.page-header .subtitle {{
 }}
 .date-section {{
   margin-bottom: 32px;
+}}
+.date-section.today {{
+  background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(99,102,241,0.02));
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 0 20px rgba(99,102,241,0.15);
+  margin-bottom: 32px;
+}}
+.date-section.today .date-heading {{
+  border-bottom-color: var(--accent);
+}}
+.date-section.today .date-label {{
+  color: var(--accent);
+}}
+.today-badge {{
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  letter-spacing: 0.5px;
 }}
 .date-heading {{
   display: flex;
@@ -464,6 +527,10 @@ footer .source {{ margin-bottom: 4px; }}
 </style>
 </head>
 <body>
+<nav class="site-nav">
+  <a href="https://machomehe.github.io/economic-map/">경제맵</a>
+  <a href="https://machomehe.github.io/weekly-macro-brief/" class="active">캘린더</a>
+</nav>
 <main>
   <header class="page-header">
     <h1>주간 매크로 브리프</h1>

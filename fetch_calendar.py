@@ -12,14 +12,18 @@ import json
 import re
 
 
-def get_this_week_dates(ref_date=None):
-    """현재 주의 월~금 날짜 리스트 (ET 기준)"""
+def get_two_weeks_dates(ref_date=None):
+    """이번 주 월요일부터 2주치 평일 반환 (월-금 × 2주 = 10일, ET 기준)"""
     if ref_date is None:
         ref_date = datetime.now(timezone.utc)
-    # ET는 UTC-4 또는 UTC-5. 단순화: UTC-4 가정 (summer time)
-    et_date = ref_date - timedelta(hours=4)
+    et_date = ref_date - timedelta(hours=4)  # EDT summer time 가정
     monday = et_date - timedelta(days=et_date.weekday())
-    return [(monday + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(5)]
+    dates = []
+    for i in range(14):
+        d = monday + timedelta(days=i)
+        if d.weekday() < 5:  # 평일만 (월-금)
+            dates.append(d.strftime('%Y-%m-%d'))
+    return dates
 
 
 def extract_events(page):
@@ -126,11 +130,11 @@ def run():
         events = extract_events(page)
         print(f"📊 전체 {len(events)}개 이벤트 추출")
 
-        # 이번 주 날짜
-        this_week = get_this_week_dates()
-        print(f"📅 이번 주 (ET): {this_week[0]} ~ {this_week[-1]}")
+        # 2주치 날짜 (이번 주 월 ~ 다음 주 금)
+        this_week = get_two_weeks_dates()
+        print(f"📅 2주치 범위 (ET): {this_week[0]} ~ {this_week[-1]}")
 
-        # 필터: 이번 주 + high importance만
+        # 필터: 2주치 + high importance만
         this_week_set = set(this_week)
         filtered_high = [
             e for e in events
@@ -141,8 +145,8 @@ def run():
             if e['date'] in this_week_set
         ]
 
-        print(f"\n🎯 이번 주 전체: {len(filtered_all)}개")
-        print(f"🔴 이번 주 3-star: {len(filtered_high)}개")
+        print(f"\n🎯 2주치 전체: {len(filtered_all)}개")
+        print(f"🔴 2주치 3-star: {len(filtered_high)}개")
 
         # 이번 주 3-star 출력
         print(f"\n=== 이번 주 3-star 미국 경제지표 ===")
