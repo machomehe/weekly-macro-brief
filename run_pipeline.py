@@ -110,9 +110,10 @@ def update():
     """매일 05:00 — 데이터 수집 → 대시보드 재생성 → GitHub 푸시"""
     log('===== UPDATE START =====')
     steps = [
-        ('fetch_calendar.py', 'TE 데이터 수집'),
+        ('fetch_calendar.py', 'Finnhub 데이터 수집'),
         ('generate_insights.py', '인사이트 생성'),
         ('generate_dashboard.py', 'HTML 대시보드 생성'),
+        ('sync_to_obsidian.py', '옵시디언 동기화'),
     ]
     for script, desc in steps:
         if not run_script(script):

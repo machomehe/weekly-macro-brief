@@ -547,7 +547,7 @@ footer .source {{ margin-bottom: 4px; }}
   {''.join(date_sections)}
 
   <footer>
-    <div class="source">자동 생성 · Trading Economics</div>
+    <div class="source">자동 생성 · Finnhub</div>
     <div>데이터 갱신: {esc(fetched_str)}</div>
   </footer>
 </main>
